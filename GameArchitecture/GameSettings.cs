@@ -46,6 +46,8 @@ public static class GameSettings {
     /// </summary>
     public static Color NotStopColor = Color.yellow;
 
+    public static bool IsDiagonalEnabled = false;
+
     /// <summary>
     /// Список цветов юнитов
     /// </summary>

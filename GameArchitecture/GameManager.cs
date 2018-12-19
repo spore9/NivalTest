@@ -78,6 +78,20 @@ public static class GameManager {
     /// <returns></returns>
     static public int getDistance(PathNode firstTile, PathNode secondTile)
     {
-        return Mathf.Abs(firstTile.X - secondTile.X) + Mathf.Abs(firstTile.Y - secondTile.Y);
+        // Без учёта диагоналей
+        if (!GameSettings.IsDiagonalEnabled)
+        {
+            return Mathf.Abs(firstTile.X - secondTile.X) + Mathf.Abs(firstTile.Y - secondTile.Y);
+        }
+        // С учётом диагоналей
+        else
+        {
+            int dstX = Mathf.Abs(firstTile.X - secondTile.X);
+            int dstY = Mathf.Abs(firstTile.Y - secondTile.Y);
+
+            if (dstX > dstY)
+                return 14 * dstY + 10 * (dstX - dstY);
+            return 14 * dstX + 10 * (dstY - dstX);
+        }
     }
 }

@@ -81,9 +81,10 @@ public class Pathfinding
                 waypoints = retracePath(startNode, targetNode);
                 return waypoints;
             }
-            // Иначе возвращаем null
-            return null;
         }
+
+        // Иначе возвращаем null
+        return null;
     }
 
     /// <summary>
@@ -135,12 +136,37 @@ public class Pathfinding
     /// <returns></returns>
     List<PathNode> getNeighbours(PathNode tile)
     {
-        // Проверяем по 4 направлениям
+
         List<PathNode> tileNeighbours = new List<PathNode>();
-        checkDirection(tile.X + 1, tile.Y, ref tileNeighbours);
-        checkDirection(tile.X - 1, tile.Y, ref tileNeighbours);
-        checkDirection(tile.X, tile.Y + 1, ref tileNeighbours);
-        checkDirection(tile.X, tile.Y - 1, ref tileNeighbours);
+        // Проверяем по 4 направлениям
+        if (!GameSettings.IsDiagonalEnabled)
+        {
+            checkDirection(tile.X + 1, tile.Y, ref tileNeighbours);
+            checkDirection(tile.X - 1, tile.Y, ref tileNeighbours);
+            checkDirection(tile.X, tile.Y + 1, ref tileNeighbours);
+            checkDirection(tile.X, tile.Y - 1, ref tileNeighbours);
+        }
+        // Или по 9 если активен соответсвующий режим
+        else
+        {
+            for (int x=-1;x<=1;x++)
+            {
+                for (int y = -1; y <= 1; y++)
+                {
+                    if (x==0 && y==0)
+                    {
+                        continue;
+                    }
+                    int checkingX = tile.X + x;
+                    int checkingY = tile.Y + y;
+                    if (checkingX >= 0 && checkingX < GameManager.FieldSideSize &&
+                    checkingY >= 0 && checkingY < GameManager.FieldSideSize)
+                    {
+                        tileNeighbours.Add(GameManager.Tiles[checkingY + checkingX * GameManager.FieldSideSize].GetComponent<Tile>().node);
+                    }
+                }
+            }
+        }
         return tileNeighbours;
     }
     /// <summary>

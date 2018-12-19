@@ -13,6 +13,12 @@ public class ButtonProcessing : MonoBehaviour {
     /// </summary>
     [SerializeField]
     Toggle toggleSeek;
+    /// <summary>
+    /// Переключатель режима хождения по диагоналям
+    /// </summary>
+    [SerializeField]
+    Toggle toggleDiagonal;
+
 
     /// <summary>
     /// Поиск остановок переключен
@@ -43,6 +49,14 @@ public class ButtonProcessing : MonoBehaviour {
     }
 
     /// <summary>
+    /// Разрешено ли хождение по диагоналям
+    /// </summary>
+    public void ToggleDiagonal()
+    {
+        GameSettings.IsDiagonalEnabled = toggleDiagonal.isOn;
+        OnDiagonalModeChanged();
+    }
+    /// <summary>
     /// Выход из игры
     /// </summary>
     public void ExitGame()
@@ -54,4 +68,9 @@ public class ButtonProcessing : MonoBehaviour {
     /// Событие смены режима
     /// </summary>
     public event ModeChanged OnModeChanged;
+    public delegate void DiagonalModeChanged();
+    /// <summary>
+    /// Событие смены режима прохождения диагоналей
+    /// </summary>
+    public event DiagonalModeChanged OnDiagonalModeChanged;
 }

@@ -64,6 +64,7 @@ public class Unit : MonoBehaviour
         Camera.main.GetComponent<PlayerControl>().OnBlockersCountChanged += changePath;
         Camera.main.GetComponent<PlayerControl>().OnStopsCountChanged += checkStop;
         Camera.main.GetComponent<ButtonProcessing>().OnModeChanged += selectNextDestanation;
+        Camera.main.GetComponent<ButtonProcessing>().OnDiagonalModeChanged += checkNewPath;
         // Выбираем свою первую точку
         selectNextDestanation();
     }
@@ -74,6 +75,14 @@ public class Unit : MonoBehaviour
     public void ChangeDestination()
     {
         selectNextDestanation();
+    }
+
+    /// <summary>
+    /// Проверка достижимости пути при смене режима прохождения диагоналей
+    /// </summary>
+    void checkNewPath()
+    {
+        onPathFound(transform.position, path[path.Length - 1]);
     }
 
     /// <summary>
@@ -263,7 +272,14 @@ public class Unit : MonoBehaviour
             // начинаем движение с 0 точки
             currentWaypoint = path[0];
             currentIndex = 0;
-            isWalking = true;
+            if (GameManager.NodeFromPosition(startPosition).IsPassable)
+            {
+                isWalking = true;
+            }
+            else
+            {
+                isWalking = false;
+            }
         }
         // Если пути нет, стоим на месте
         else
