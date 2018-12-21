@@ -127,19 +127,37 @@ public class Unit : MonoBehaviour
 
                 currentIndex++;
 
-                // если мы достигли конечного пункта
+                // Если мы достигли конечного пункта
                 if (currentIndex >= path.Length)
                 {
                     isWalking = false;
                     Tile endNode = GameManager.NodeFromPosition(currentWaypoint);
-                    // если мы достили клетки для остановки
+                    // Если мы достили клетки для остановки
                     if (GameManager.IsTakingCellsMode && endNode.IsStop)
                     {
-                        OccupiedStopID = endNode.ID;
-                        // сообщаем всем, что клетка занята
-                        OnTileOccupied();
+                        bool isOccupied = false;
+                        // Проверка на случай, если пришли одновременно
+                        foreach (Unit unit in GameManager.Units)
+                        {
+                            if (unit.OccupiedStopID == endNode.ID)
+                            {
+                                isOccupied = true;
+                                break;
+                            }
+                        }
+                        if (!isOccupied)
+                        {
+                            OccupiedStopID = endNode.ID;
+                            // Сообщаем всем, что клетка занята
+                            OnTileOccupied();
+                        }
+                        // Если не успели, ищем дальше
+                        else
+                        {
+                            selectNextDestanation();
+                        }
                     }
-                    // иначе выбираем следующую цель
+                    // Иначе выбираем следующую цель
                     else
                     {
                         selectNextDestanation();
