@@ -13,75 +13,62 @@ public class Pathfinding
     /// <param name="startPosition">Начальная точка</param>
     /// <param name="targetPosition">Конечная точка</param>
     /// <returns>Массив точек пути</returns>
-    public Vector3[] FindPath(Vector3 startPosition, Vector3 targetPosition)
+    public Vector3[] FindPath(PathNode startNode, PathNode targetNode)
     {
         // Heap (в целях оптимизации) с потенциальными для прохода точек
         Heap<PathNode> openNodes = new Heap<PathNode>(GameManager.FieldSideSize * GameManager.FieldSideSize);
         // HashSet для быстрого определения, есть ли в нём объект или нет
         HashSet<PathNode> closeNodes = new HashSet<PathNode>();
-
-        // Перевод точек из пространственных координат в тайлы
-        PathNode startNode = GameManager.NodeFromPosition(startPosition).node;
-        PathNode targetNode = GameManager.NodeFromPosition(targetPosition).node;
-        // Если мы идём в ту же точку, где уже находимся
-        if (startNode.ID == targetNode.ID)
+        Vector3[] waypoints = new Vector3[0];
+        bool success = false;
+        openNodes.Add(startNode);
+        while (openNodes.Count > 0)
         {
-            Vector3[] waypoints = new Vector3[1];
-            waypoints[0] = new Vector3(targetPosition.x, 1, targetPosition.z);
+            // Самую дешёвую по прохождению точку считаем текущей
+            PathNode currentNode = openNodes.RemoveFirst();
+            closeNodes.Add(currentNode);
+
+            // Если мы достигли пункта назначения
+            if (currentNode == targetNode)
+            {
+                success = true;
+                break;
+            }
+            // Получаем все соседние тайлы и проверяем их
+            foreach (PathNode neighbour in getNeighbours(currentNode))
+            {
+                // Если уже были в данной точке или она не проходима, то пропускаем
+                if (!neighbour.IsPassable ||
+                    closeNodes.Contains(neighbour))
+                {
+                    continue;
+                }
+                // Считаем стоимость прохода к данному соседу
+                int newCostToNeighbour = currentNode.gCost + GameManager.getDistance(currentNode, neighbour);
+                // Если рядом с нашей точком или ещё не добавлен в число доступных
+                if (newCostToNeighbour < neighbour.gCost || !openNodes.Contains(neighbour))
+                {
+                    // Считаем показатели данной точки
+                    neighbour.gCost = newCostToNeighbour;
+                    neighbour.hCost = GameManager.getDistance(neighbour, targetNode);
+                    // Указываем откуда к ней пришли
+                    neighbour.ParentNode = currentNode;
+                    // Добаляем к числу доступных
+                    if (!openNodes.Contains(neighbour))
+                    {
+                        openNodes.Add(neighbour);
+                    }
+                }
+            }
+        }
+        // Если путь найден
+        if (success)
+        {
+            // Обрабатываем путь перед возвращением
+            waypoints = retracePath(startNode, targetNode);
             return waypoints;
         }
-        else
-        {
-            Vector3[] waypoints = new Vector3[0];
-            bool success = false;
-            openNodes.Add(startNode);
-            while (openNodes.Count > 0)
-            {
-                // Самую дешёвую по прохождению точку считаем текущей
-                PathNode currentNode = openNodes.RemoveFirst();
-                closeNodes.Add(currentNode);
 
-                // Если мы достигли пункта назначения
-                if (currentNode == targetNode)
-                {
-                    success = true;
-                    break;
-                }
-                // Получаем все соседние тайлы и проверяем их
-                foreach (PathNode neighbour in getNeighbours(currentNode))
-                {
-                    // Если уже были в данной точке или она не проходима, то пропускаем
-                    if (!neighbour.IsPassable ||
-                        closeNodes.Contains(neighbour))
-                    {
-                        continue;
-                    }
-                    // Считаем стоимость прохода к данному соседу
-                    int newCostToNeighbour = currentNode.gCost + GameManager.getDistance(currentNode, neighbour);
-                    // Если рядом с нашей точком или ещё не добавлен в число доступных
-                    if (newCostToNeighbour < neighbour.gCost || !openNodes.Contains(neighbour))
-                    {
-                        // Считаем показатели данной точки
-                        neighbour.gCost = newCostToNeighbour;
-                        neighbour.hCost = GameManager.getDistance(neighbour, targetNode);
-                        // Указываем откуда к ней пришли
-                        neighbour.ParentNode = currentNode;
-                        // Добаляем к числу доступных
-                        if (!openNodes.Contains(neighbour))
-                        {
-                            openNodes.Add(neighbour);
-                        }
-                    }
-                }
-            }
-            // Если путь найден
-            if (success)
-            {
-                // Обрабатываем путь перед возвращением
-                waypoints = retracePath(startNode, targetNode);
-                return waypoints;
-            }
-        }
 
         // Иначе возвращаем null
         return null;

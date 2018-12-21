@@ -13,7 +13,6 @@ public class Tile : MonoBehaviour
     public int ID
     {
         get { return node.ID; }
-        set { node.ID = value; }
     }
 
     /// <summary>
@@ -48,8 +47,7 @@ public class Tile : MonoBehaviour
     /// <param name="y">Y координата в таблице тайлов</param>
     public void Initialize(int id, int x, int y)
     {
-        node = new PathNode(x, y);
-        ID = id;
+        node = new PathNode(id, x, y);
         IsStop = false;
         IsPassable = true;
         IsOccupied = false;
@@ -63,11 +61,17 @@ public class Tile : MonoBehaviour
 public class PathNode : IHeapItem<PathNode>
 {
     int heapIndex;
-
+    int id;
     /// <summary>
     /// Номер тайла в списке тайлов
     /// </summary>
-    public int ID;
+    public int ID
+    {
+        get
+        {
+            return id;
+        }
+    }
 
     /// <summary>
     /// Расстояние от стартовой точки до этой
@@ -110,8 +114,9 @@ public class PathNode : IHeapItem<PathNode>
     /// </summary>
     /// <param name="x"></param>
     /// <param name="y"></param>
-    public PathNode(int x, int y)
+    public PathNode(int _id, int x, int y)
     {
+        id = _id;
         X = x;
         Y = y;
     }

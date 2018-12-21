@@ -7,10 +7,22 @@ using UnityEngine;
 /// </summary>
 public class Unit : MonoBehaviour
 {
+    int id;
     /// <summary>
     /// Номер юнита в таблице юнитов
     /// </summary>
-    public int ID;
+    public int ID
+    {
+        get
+        {
+            return id;
+        }
+    }
+
+    /// <summary>
+    /// ID занятой точки остановки (-1 если не занял точку)
+    /// </summary>
+    public int OccupiedStopID { get; set; }
 
     /// <summary>
     /// Объект обозначающий цель юнита
@@ -38,10 +50,6 @@ public class Unit : MonoBehaviour
     /// Может ли юнит идти
     /// </summary>
     bool isWalking;
-    /// <summary>
-    /// Занял ли юнит точку в режиме стояния
-    /// </summary>
-    bool isKeepTile;
 
     /// <summary>
     /// Инициализация юнита
@@ -49,11 +57,11 @@ public class Unit : MonoBehaviour
     /// <param name="id">Номер юнита в таблице юнитов</param>
     /// <param name="currentTile">Где юнит находится</param>
     /// <param name="unitColor">Цвет юнита</param>
-    public void Initialize(int id, Tile currentTile, Color unitColor)
+    public void Initialize(int _id, Tile currentTile, Color unitColor)
     {
-        ID = id;
+        id = _id;
         isWalking = false;
-        isKeepTile = false;
+        OccupiedStopID = -1;
         GetComponent<Renderer>().material.color = unitColor;
         // Настройка маркера цели
         destinationMark = Instantiate(Resources.Load(@"Particles\DestinationMark")) as GameObject;
@@ -63,7 +71,7 @@ public class Unit : MonoBehaviour
         // Подписываемся на события, которые могут вызвать изменение пути
         Camera.main.GetComponent<PlayerControl>().OnBlockersCountChanged += changePath;
         Camera.main.GetComponent<PlayerControl>().OnStopsCountChanged += checkStop;
-        Camera.main.GetComponent<ButtonProcessing>().OnModeChanged += selectNextDestanation;
+        Camera.main.GetComponent<ButtonProcessing>().OnModeChanged += ChangeDestination;
         Camera.main.GetComponent<ButtonProcessing>().OnDiagonalModeChanged += checkNewPath;
         // Выбираем свою первую точку
         selectNextDestanation();
@@ -82,7 +90,7 @@ public class Unit : MonoBehaviour
     /// </summary>
     void checkNewPath()
     {
-        onPathFound(transform.position, path[path.Length - 1]);
+        pathSearch(transform.position, path[path.Length - 1]);
     }
 
     /// <summary>
@@ -90,26 +98,22 @@ public class Unit : MonoBehaviour
     /// </summary>
     void changePath()
     {
-        // Если юнит уже занял клетку, то необходимо лишь убедиться что блокиратор не появился на нём
-        if (isKeepTile)
+        // Если режим поиска остановки, то проверим, не появилось ли вариантов
+        if (GameManager.IsTakingCellsMode)
         {
-            Tile currentTile = GameManager.NodeFromPosition(transform.position);
-            if (!currentTile.IsPassable)
-            {
-                currentTile.IsOccupied = false;
-                isKeepTile = false;
-                selectNextDestanation();
-            }
-            return;
+            selectNextDestanation(true);
         }
-        // Иначе проверяем достижимость клетки
-        onPathFound(transform.position, path[path.Length - 1]);
+        else
+        {
+            // Иначе проверяем достижимость клетки
+            pathSearch(transform.position, path[path.Length - 1]);
+        }
     }
 
     // Движение юнита в пространстве каждый кадр
     void Update()
     {
-        if (isWalking)
+        if (isWalking && OccupiedStopID == -1)
         {
             // Если достигли текущий цели
             if (transform.position == currentWaypoint)
@@ -131,15 +135,13 @@ public class Unit : MonoBehaviour
                     // если мы достили клетки для остановки
                     if (GameManager.IsTakingCellsMode && endNode.IsStop)
                     {
-                        endNode.IsOccupied = true;
-                        isKeepTile = true;
+                        OccupiedStopID = endNode.ID;
                         // сообщаем всем, что клетка занята
                         OnTileOccupied();
                     }
                     // иначе выбираем следующую цель
                     else
                     {
-                        endNode.IsOccupied = false;
                         selectNextDestanation();
                     }
                     return;
@@ -159,13 +161,12 @@ public class Unit : MonoBehaviour
     void checkStop()
     {
         // Если мы уже заняли клетку для остановки, то проверяем не перестала ли она таковой быть
-        if (isKeepTile)
+        if (OccupiedStopID!=-1)
         {
             Tile currentNode = GameManager.NodeFromPosition(currentWaypoint);
             if (!currentNode.IsStop)
             {
-                currentNode.IsOccupied = false;
-                isKeepTile = false;
+                OccupiedStopID = -1;
             }
             else
             {
@@ -179,45 +180,69 @@ public class Unit : MonoBehaviour
     /// <summary>
     /// Выбор цели
     /// </summary>
-    void selectNextDestanation()
+    /// <param name="isJustStopSearch">Просто ли проверяем, нет ли новых остановок</param>
+    void selectNextDestanation(bool isJustStopSearch = false)
     {
         // Не в режиме занятия остановок просто выбираем случайную
         if (!GameManager.IsTakingCellsMode)
         {
-            if (isKeepTile)
+            if (OccupiedStopID != -1)
             {
-                Tile currentNode = GameManager.NodeFromPosition(currentWaypoint);
-                currentNode.IsOccupied = false;
-                isKeepTile = false;
+                OccupiedStopID = -1;
             }
             goToRandomPoint();
         }
         // Иначе, если мы уже не заняли клетку ищем подходящие
-        else if (!isKeepTile)
+        else if (OccupiedStopID == -1)
         {
             float minDistance = float.MaxValue;
             Tile destination = null;
             foreach (Tile tile in GameManager.Tiles)
             {
-                if (!tile.IsOccupied && tile.IsPassable && tile.IsStop)
+                if (tile.IsPassable && tile.IsStop)
                 {
-                    // Желательно пойти к близжайщей свободной остановке
-                    float distance = Vector3.Distance(transform.position, tile.transform.position);
-                    if (distance < minDistance)
+                    bool isOccupied = false;
+                    foreach(Unit unit in GameManager.Units)
                     {
-                        minDistance = distance;
-                        destination = tile;
+                        if (unit.OccupiedStopID == tile.ID)
+                        {
+                            isOccupied = true;
+                            break;
+                        }
+                    }
+                    if (isOccupied)
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        // Желательно пойти к близжайщей свободной остановке
+                        float distance = Vector3.Distance(transform.position, tile.transform.position);
+                        if (distance < minDistance)
+                        {
+                            minDistance = distance;
+                            destination = tile;
+                        }
                     }
                 }
             }
             if (destination!=null)
             {
-                onPathFound(transform.position, destination.transform.position);
+                pathSearch(transform.position, destination.transform.position);
             }
             // Если подходящих не нашли, идём в случайную
             else
             {
-                goToRandomPoint();
+                // Если не нужно идти в предыдущую точку
+                if (!isJustStopSearch)
+                {
+                    goToRandomPoint();
+                }
+                // Иначе проверяем достижимость клетки
+                else
+                {
+                    pathSearch(transform.position, path[path.Length - 1]);
+                }
             }
         }
     }
@@ -235,14 +260,14 @@ public class Unit : MonoBehaviour
             int tileID = Random.Range(0, tileCount);
             if (!GameManager.Tiles[tileID].IsOccupied && GameManager.Tiles[tileID].IsPassable)
             {
-                onPathFound(transform.position, GameManager.Tiles[tileID].transform.position);
-                GameManager.Tiles[tileID].IsOccupied = true;
+                pathSearch(transform.position, GameManager.Tiles[tileID].transform.position);
                 return;
             }
             j++;
         }
-        // Если не нашли, останавливаемся
+        // Если не нашли, останавливаемся, попробуем через 3 секунды снова
         isWalking = false;
+        Invoke("ChangeDestination", 3f);
     }
 
     /// <summary>
@@ -250,11 +275,36 @@ public class Unit : MonoBehaviour
     /// </summary>
     /// <param name="startPosition">Точка А</param>
     /// <param name="targetPosition">Точка Б</param>
-    void onPathFound(Vector3 startPosition, Vector3 targetPosition)
+    void pathSearch(Vector3 startPosition, Vector3 targetPosition)
     {
         // Перемещаем отметку цели
         destinationMark.transform.position = targetPosition;
-        Vector3[] newPath = GameManager.Pathfinder.FindPath(startPosition, targetPosition);
+        // Перевод точек из пространственных координат в тайлы
+        PathNode startNode = GameManager.NodeFromPosition(startPosition).node;
+        PathNode targetNode = GameManager.NodeFromPosition(targetPosition).node;
+
+        // Отпускаем предыдущую цель
+        if (path != null)
+        {
+            if (path.Length > 0)
+            {
+                GameManager.Tiles[GameManager.NodeFromPosition(path[path.Length - 1]).ID].IsOccupied = false;
+            }
+        }
+
+        Vector3[] newPath;
+
+        // Если мы идём в ту же точку, где уже находимся
+        if (startNode.ID == targetNode.ID)
+        {
+            newPath = new Vector3[1];
+            Vector3 newPosition = new Vector3(targetPosition.x, 1, targetPosition.z);
+            newPath[0] = newPosition;
+        }
+        else
+        {
+            newPath = GameManager.Pathfinder.FindPath(startNode, targetNode);
+        }
         // Если путь содержит точки, значит он существует
         if (newPath!=null)
         {
@@ -272,6 +322,7 @@ public class Unit : MonoBehaviour
             // начинаем движение с 0 точки
             currentWaypoint = path[0];
             currentIndex = 0;
+            GameManager.Tiles[targetNode.ID].IsOccupied = true;
             if (GameManager.NodeFromPosition(startPosition).IsPassable)
             {
                 isWalking = true;
